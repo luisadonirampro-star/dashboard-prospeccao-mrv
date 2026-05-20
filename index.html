@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Dashboard — Prospecção MRV</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0d1117;
+    --bg2: #161b22;
+    --bg3: #21262d;
+    --border: rgba(255,255,255,0.08);
+    --border2: rgba(255,255,255,0.14);
+    --text: #e6edf3;
+    --text2: #8b949e;
+    --text3: #484f58;
+    --green: #1D9E75;
+    --green-light: #2dbd8e;
+    --green-dim: rgba(29,158,117,0.15);
+    --red: #e24b4a;
+    --red-dim: rgba(226,75,74,0.12);
+    --amber: #d29922;
+    --amber-dim: rgba(210,153,34,0.12);
+    --blue: #58a6ff;
+    --radius: 10px;
+    --radius-lg: 14px;
+  }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 0;
+  }
+
+  .topbar {
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    padding: 0 2rem;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  .topbar-left { display: flex; align-items: center; gap: 14px; }
+
+  .logo {
+    width: 34px; height: 34px;
+    background: var(--green);
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+  }
+
+  .topbar-title { font-size: 15px; font-weight: 600; color: var(--text); }
+  .topbar-sub { font-size: 12px; color: var(--text2); margin-top: 1px; }
+
+  .topbar-right { display: flex; align-items: center; gap: 10px; }
+
+  .badge-live {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 11px; font-weight: 500; color: var(--green-light);
+    background: var(--green-dim);
+    padding: 4px 10px; border-radius: 99px;
+    border: 1px solid rgba(29,158,117,0.3);
+  }
+
+  .badge-live::before {
+    content: '';
+    width: 6px; height: 6px;
+    background: var(--green-light);
+    border-radius: 50%;
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+
+  .btn {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px; font-weight: 500;
+    padding: 7px 14px;
+    border-radius: var(--radius);
+    border: 1px solid var(--border2);
+    background: var(--bg3);
+    color: var(--text);
+    cursor: pointer;
+    transition: all 0.15s;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+
+  .btn:hover { background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.2); }
+
+  .btn-primary {
+    background: var(--green);
+    border-color: var(--green);
+    color: #fff;
+  }
+
+  .btn-primary:hover { background: var(--green-light); border-color: var(--green-light); }
+
+  .content { max-width: 1100px; margin: 0 auto; padding: 2rem; }
+
+  .config-panel {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+  }
+
+  .config-title { font-size: 14px; font-weight: 600; margin-bottom: 6px; }
+  .config-desc { font-size: 12px; color: var(--text2); margin-bottom: 14px; line-height: 1.6; }
+
+  .config-row { display: flex; gap: 10px; flex-wrap: wrap; }
+
+  .config-input {
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    padding: 8px 12px;
+    border-radius: var(--radius);
+    border: 1px solid var(--border2);
+    background: var(--bg);
+    color: var(--text);
+    flex: 1;
+    min-width: 280px;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+
+  .config-input:focus { border-color: var(--green); }
+
+  .status-msg {
+    margin-top: 12px;
+    font-size: 12px;
+    padding: 8px 12px;
+    border-radius: var(--radius);
+    display: none;
+  }
+
+  .status-ok { background: var(--green-dim); color: var(--green-light); border: 1px solid rgba(29,158,117,0.2); display: block; }
+  .status-err { background: var(--red-dim); color: var(--red); border: 1px solid rgba(226,75,74,0.2); display: block; }
+  .status-loading { background: var(--bg3); color: var(--text2); border: 1px solid var(--border); display: block; }
+
+  .metrics {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 12px;
+    margin-bottom: 1.5rem;
+  }
+
+  .metric {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 1.25rem;
+    transition: border-color 0.2s;
+    animation: fadeUp 0.4s ease both;
+  }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .metric:hover { border-color: var(--border2); }
+  .metric-icon { font-size: 20px; margin-bottom: 10px; }
+  .metric-label { font-size: 11px; font-weight: 500; color: var(--text2); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 6px; }
+  .metric-value { font-size: 30px; font-weight: 600; line-height: 1; color: var(--text); }
+  .metric-sub { font-size: 11px; color: var(--text3); margin-top: 6px; }
+  .metric-green .metric-value { color: var(--green-light); }
+  .metric-red .metric-value { color: var(--red); }
+  .metric-amber .metric-value { color: var(--amber); }
+
+  .charts {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 12px;
+    margin-bottom: 1.5rem;
+  }
+
+  .card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 1.25rem;
+    animation: fadeUp 0.5s ease both;
+  }
+
+  .card-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .legend {
+    display: flex; flex-wrap: wrap; gap: 14px;
+    font-size: 11px; color: var(--text2);
+    margin-bottom: 14px;
+  }
+
+  .legend-item { display: flex; align-items: center; gap: 5px; }
+  .legend-dot { width: 8px; height: 8px; border-radius: 2px; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead th {
+    text-align: left;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text2);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  tbody td {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text);
+    font-size: 13px;
+  }
+
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover td { background: rgba(255,255,255,0.02); }
+
+  .mono { font-family: 'DM Mono', monospace; font-size: 12px; color: var(--text2); }
+
+  .pill {
+    display: inline-block;
+    font-size: 11px; font-weight: 500;
+    padding: 3px 9px;
+    border-radius: 99px;
+  }
+
+  .pill-green { background: var(--green-dim); color: var(--green-light); }
+  .pill-red { background: var(--red-dim); color: var(--red); }
+  .pill-gray { background: rgba(255,255,255,0.06); color: var(--text2); }
+
+  .empty-state {
+    text-align: center;
+    padding: 4rem 2rem;
+    color: var(--text3);
+  }
+
+  .empty-state .big { font-size: 40px; margin-bottom: 12px; }
+  .empty-state p { font-size: 14px; line-height: 1.6; }
+
+  #dashboard { display: none; }
+
+  .footer {
+    text-align: center;
+    padding: 2rem;
+    font-size: 11px;
+    color: var(--text3);
+    border-top: 1px solid var(--border);
+    margin-top: 2rem;
+  }
+
+  .refresh-bar {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap; gap: 10px;
+  }
+
+  .last-update { font-size: 12px; color: var(--text2); }
+
+  @media (max-width: 700px) {
+    .charts { grid-template-columns: 1fr; }
+    .content { padding: 1rem; }
+    .topbar { padding: 0 1rem; }
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-left">
+    <div class="logo">📊</div>
+    <div>
+      <div class="topbar-title">Prospecção MRV</div>
+      <div class="topbar-sub">Dashboard de envios automáticos</div>
+    </div>
+  </div>
+  <div class="topbar-right">
+    <span class="badge-live">Ao vivo</span>
+    <button class="btn" onclick="toggleConfig()">⚙ Configurar</button>
+  </div>
+</div>
+
+<div class="content">
+
+  <div class="config-panel" id="config-panel">
+    <div class="config-title">Conectar Google Sheets</div>
+    <div class="config-desc">
+      Cole a URL da sua planilha do Google Sheets abaixo. A planilha deve estar configurada como
+      <strong style="color:var(--green-light)">pública (qualquer pessoa com o link pode ver)</strong>
+      e ter uma aba chamada <strong style="color:var(--green-light)">Leads</strong> com as colunas:
+      id, telefone, mensagem_enviada_em, status_envio.
+    </div>
+    <div class="config-row">
+      <input class="config-input" id="sheet-url" type="text"
+        placeholder="https://docs.google.com/spreadsheets/d/SEU_ID_AQUI/..." />
+      <button class="btn btn-primary" onclick="conectar()">🔌 Conectar</button>
+      <button class="btn" onclick="atualizar()">🔄 Atualizar</button>
+    </div>
+    <div class="status-msg" id="status-msg"></div>
+  </div>
+
+  <div id="empty-state" class="empty-state">
+    <div class="big">📋</div>
+    <p>Cole a URL da sua planilha do Google Sheets acima<br>e clique em <strong>Conectar</strong> para carregar o dashboard.</p>
+  </div>
+
+  <div id="dashboard">
+    <div class="refresh-bar">
+      <span class="last-update" id="last-update"></span>
+      <button class="btn" onclick="atualizar()">🔄 Atualizar dados</button>
+    </div>
+
+    <div class="metrics">
+      <div class="metric" style="animation-delay:0s">
+        <div class="metric-icon">👥</div>
+        <div class="metric-label">Total de leads</div>
+        <div class="metric-value" id="m-total">—</div>
+        <div class="metric-sub">na planilha</div>
+      </div>
+      <div class="metric metric-green" style="animation-delay:0.05s">
+        <div class="metric-icon">✅</div>
+        <div class="metric-label">Mensagens enviadas</div>
+        <div class="metric-value" id="m-enviadas">—</div>
+        <div class="metric-sub" id="m-enviadas-pct">—</div>
+      </div>
+      <div class="metric metric-red" style="animation-delay:0.1s">
+        <div class="metric-icon">⚠️</div>
+        <div class="metric-label">Erros de envio</div>
+        <div class="metric-value" id="m-erros">—</div>
+        <div class="metric-sub" id="m-erros-pct">—</div>
+      </div>
+      <div class="metric metric-amber" style="animation-delay:0.15s">
+        <div class="metric-icon">📈</div>
+        <div class="metric-label">Taxa de sucesso</div>
+        <div class="metric-value" id="m-taxa">—</div>
+        <div class="metric-sub">dos enviados</div>
+      </div>
+      <div class="metric" style="animation-delay:0.2s">
+        <div class="metric-icon">⏳</div>
+        <div class="metric-label">Pendentes</div>
+        <div class="metric-value" id="m-pendentes">—</div>
+        <div class="metric-sub">aguardando envio</div>
+      </div>
+    </div>
+
+    <div class="charts">
+      <div class="card" style="animation-delay:0.25s">
+        <div class="card-title">
+          Envios por dia
+          <span style="font-size:11px; color:var(--text3); font-weight:400;">últimos 30 dias</span>
+        </div>
+        <div class="legend">
+          <div class="legend-item"><span class="legend-dot" style="background:#1D9E75"></span>Enviados</div>
+          <div class="legend-item"><span class="legend-dot" style="background:#e24b4a"></span>Erros</div>
+        </div>
+        <div style="position:relative; width:100%; height:220px;">
+          <canvas id="chart-dia" role="img" aria-label="Gráfico de barras com envios por dia">Envios por dia</canvas>
+        </div>
+      </div>
+
+      <div class="card" style="animation-delay:0.3s">
+        <div class="card-title">Resultado geral</div>
+        <div class="legend" id="pizza-legend"></div>
+        <div style="position:relative; width:100%; height:180px;">
+          <canvas id="chart-pizza" role="img" aria-label="Gráfico de rosca com resultado geral">Resultado geral</canvas>
+        </div>
+        <div id="pizza-center" style="text-align:center; margin-top:12px; font-size:12px; color:var(--text2);"></div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:1.5rem; animation-delay:0.35s; overflow-x:auto;">
+      <div class="card-title">Últimos envios registrados</div>
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Telefone</th>
+            <th>Enviado em</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody id="tabela-body"></tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<div class="footer">
+  Dashboard — Prospecção Automática MRV &nbsp;·&nbsp; Dados via Google Sheets
+</div>
+
+<script>
+let chartDia = null, chartPizza = null;
+let sheetId = localStorage.getItem('sheet-id') || '';
+
+if (sheetId) {
+  document.getElementById('sheet-url').value = `https://docs.google.com/spreadsheets/d/${sheetId}/`;
+  carregarDados(sheetId);
+}
+
+function toggleConfig() {
+  const p = document.getElementById('config-panel');
+  p.style.display = p.style.display === 'none' ? 'block' : 'none';
+}
+
+function extractId(url) {
+  const m = url.match(/\/d\/([a-zA-Z0-9-_]+)/);
+  return m ? m[1] : null;
+}
+
+function setStatus(msg, type) {
+  const el = document.getElementById('status-msg');
+  el.textContent = msg;
+  el.className = 'status-msg status-' + type;
+}
+
+function conectar() {
+  const url = document.getElementById('sheet-url').value.trim();
+  const id = extractId(url);
+  if (!id) { setStatus('URL inválida. Verifique e tente novamente.', 'err'); return; }
+  localStorage.setItem('sheet-id', id);
+  sheetId = id;
+  carregarDados(id);
+}
+
+function atualizar() {
+  if (sheetId) carregarDados(sheetId);
+  else conectar();
+}
+
+async function carregarDados(id) {
+  setStatus('Conectando à planilha...', 'loading');
+  const csvUrl = `https://docs.google.com/spreadsheets/d/${id}/gviz/tq?tqx=out:csv&sheet=Leads`;
+  try {
+    const res = await fetch(csvUrl);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const text = await res.text();
+    const rows = parseCSV(text);
+    if (rows.length < 2) throw new Error('Planilha vazia ou sem dados');
+    setStatus(`✓ Conectado! ${rows.length - 1} registros carregados.`, 'ok');
+    renderDashboard(rows);
+    document.getElementById('last-update').textContent =
+      'Atualizado em ' + new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });
+  } catch(e) {
+    setStatus('Não foi possível acessar a planilha. Verifique se ela está pública (qualquer pessoa com o link pode ver) e se a aba se chama "Leads".', 'err');
+    console.error(e);
+  }
+}
+
+function parseCSV(text) {
+  return text.trim().split('\n').map(line => {
+    const cols = [];
+    let cur = '', inQ = false;
+    for (let i = 0; i < line.length; i++) {
+      const c = line[i];
+      if (c === '"') { inQ = !inQ; }
+      else if (c === ',' && !inQ) { cols.push(cur.trim()); cur = ''; }
+      else { cur += c; }
+    }
+    cols.push(cur.trim());
+    return cols;
+  });
+}
+
+function renderDashboard(rows) {
+  const headers = rows[0].map(h => h.replace(/"/g,'').toLowerCase().trim());
+  const idx = k => headers.indexOf(k);
+  const get = (row, key) => (row[idx(key)] || '').replace(/"/g,'').trim();
+
+  const data = rows.slice(1).map(r => ({
+    id: get(r, 'id'),
+    telefone: get(r, 'telefone'),
+    data: get(r, 'mensagem_enviada_em'),
+    status: get(r, 'status_envio').toLowerCase()
+  }));
+
+  const total = data.length;
+  const enviados = data.filter(d => d.status === 'enviado').length;
+  const erros = data.filter(d => d.status !== 'enviado' && d.data !== '').length;
+  const pendentes = data.filter(d => d.data === '').length;
+  const taxa = (enviados + erros) > 0 ? Math.round((enviados / (enviados + erros)) * 100) : 0;
+
+  document.getElementById('m-total').textContent = total;
+  document.getElementById('m-enviadas').textContent = enviados;
+  document.getElementById('m-enviadas-pct').textContent = Math.round((enviados/total)*100) + '% do total';
+  document.getElementById('m-erros').textContent = erros;
+  document.getElementById('m-erros-pct').textContent = erros > 0 ? Math.round((erros/total)*100) + '% do total' : 'nenhum erro';
+  document.getElementById('m-taxa').textContent = taxa + '%';
+  document.getElementById('m-pendentes').textContent = pendentes;
+
+  const porDia = {};
+  data.filter(d => d.data).forEach(d => {
+    const dia = d.data.substring(0, 10);
+    if (!porDia[dia]) porDia[dia] = { env: 0, err: 0 };
+    if (d.status === 'enviado') porDia[dia].env++;
+    else porDia[dia].err++;
+  });
+  const dias = Object.keys(porDia).sort().slice(-30);
+  const labels = dias.map(d => { const p = d.split('-'); return p[2] + '/' + p[1]; });
+
+  if (chartDia) chartDia.destroy();
+  chartDia = new Chart(document.getElementById('chart-dia'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        { label: 'Enviados', data: dias.map(d => porDia[d].env), backgroundColor: '#1D9E75', borderRadius: 4, borderSkipped: false },
+        { label: 'Erros', data: dias.map(d => porDia[d].err), backgroundColor: '#e24b4a', borderRadius: 4, borderSkipped: false }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: {
+          stacked: true,
+          ticks: { color: '#8b949e', font: { size: 11, family: 'DM Sans' }, maxRotation: 45, autoSkip: true },
+          grid: { display: false },
+          border: { color: 'rgba(255,255,255,0.06)' }
+        },
+        y: {
+          stacked: true,
+          ticks: { color: '#8b949e', font: { size: 11, family: 'DM Sans' }, stepSize: 1 },
+          grid: { color: 'rgba(255,255,255,0.04)' },
+          border: { display: false }
+        }
+      }
+    }
+  });
+
+  const pizzaVals = [enviados, erros, pendentes].filter(v => v > 0);
+  const pizzaLabels = ['Enviados', 'Erros', 'Pendentes'].filter((l, i) => [enviados, erros, pendentes][i] > 0);
+  const pizzaColors = ['#1D9E75', '#e24b4a', '#484f58'].filter((c, i) => [enviados, erros, pendentes][i] > 0);
+
+  document.getElementById('pizza-legend').innerHTML = pizzaLabels.map((l, i) =>
+    `<div class="legend-item"><span class="legend-dot" style="background:${pizzaColors[i]}"></span>${l}: ${pizzaVals[i]}</div>`
+  ).join('');
+
+  if (chartPizza) chartPizza.destroy();
+  chartPizza = new Chart(document.getElementById('chart-pizza'), {
+    type: 'doughnut',
+    data: { labels: pizzaLabels, datasets: [{ data: pizzaVals, backgroundColor: pizzaColors, borderWidth: 0, hoverOffset: 4 }] },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      cutout: '68%',
+      plugins: { legend: { display: false } }
+    }
+  });
+  document.getElementById('pizza-center').textContent = taxa + '% de sucesso';
+
+  const recentes = data.filter(d => d.data).sort((a, b) => b.data.localeCompare(a.data)).slice(0, 15);
+  document.getElementById('tabela-body').innerHTML = recentes.map(d => {
+    const pill = d.status === 'enviado'
+      ? `<span class="pill pill-green">enviado</span>`
+      : `<span class="pill pill-red">${d.status || 'erro'}</span>`;
+    return `<tr>
+      <td class="mono">${d.id}</td>
+      <td class="mono">${d.telefone}</td>
+      <td class="mono">${d.data}</td>
+      <td>${pill}</td>
+    </tr>`;
+  }).join('') || `<tr><td colspan="4" style="text-align:center; padding:2rem; color:#484f58;">Nenhum envio registrado ainda</td></tr>`;
+
+  document.getElementById('empty-state').style.display = 'none';
+  document.getElementById('dashboard').style.display = 'block';
+}
+
+setInterval(() => { if (sheetId) carregarDados(sheetId); }, 5 * 60 * 1000);
+</script>
+</body>
+</html>
